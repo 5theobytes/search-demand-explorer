@@ -117,6 +117,8 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.top{position:st
 <script>
 const LANG={en:'English',ru:'Русский',th:'ไทย',ar:'العربية',uk:'Українська',ka:'ქართული',hy:'Հայերեն',az:'Azərbaycan'};
 let secrets={login:'',password:''}, rows=[], selected=new Set();
+const fallbackCountryOptions=document.getElementById('loc').innerHTML;
+let countryCatalog=null, catalogRequest=0;
 
 function qs(id){return document.getElementById(id)}
 function status(msg,type=''){qs('status').textContent=msg;qs('status').className='status '+type}
@@ -125,8 +127,48 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function currentCtx(){return {location_code:Number(qs('loc').value)||null,language_code:qs('lang').value}}
 function currentKeywords(){return qs('keywords').value.split(/\n+/).map(x=>x.trim()).filter(Boolean)}
 function credsOk(){if(!secrets.login||!secrets.password){openSecrets();sstatus('Введите DataForSEO login и API password','err');return false}return true}
-function syncLang(){const opt=qs('loc').selectedOptions[0],ls=(opt?.dataset.langs||'').split(',').filter(Boolean);qs('lang').innerHTML=ls.length?ls.map(x=>'<option value="'+x+'">'+(LANG[x]||x)+'</option>').join(''):'<option value="">—</option>'}
+function syncLang(preferred=qs('lang').value){
+  const locationCode=qs('loc').value,opt=qs('loc').selectedOptions[0];
+  const languages=countryCatalog?.[locationCode]?.languages
+    || (opt?.dataset.langs||'').split(',').filter(Boolean)
+      .map(code=>({language_code:code,language_name:LANG[code]||code}));
+  qs('lang').innerHTML=languages.map(language=>'<option value="'+esc(language.language_code)+'">'+esc(language.language_name)+'</option>').join('')||'<option value="">—</option>';
+  if(languages.some(language=>language.language_code===preferred))qs('lang').value=preferred;
+  else if(languages.length)qs('lang').value=languages[0].language_code;
+}
+function restoreCountryFallback(){
+  const locationCode=qs('loc').value,languageCode=qs('lang').value;
+  countryCatalog=null;
+  qs('loc').innerHTML=fallbackCountryOptions;
+  if([...qs('loc').options].some(option=>option.value===locationCode))qs('loc').value=locationCode;
+  syncLang(languageCode);
+}
 async function callApi(url,payload){const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),cache:'no-store'});let d={};try{d=await r.json()}catch(_){}if(!r.ok||d.error)throw new Error(d.error||('HTTP '+r.status));return d}
+async function loadCountryCatalog(){
+  const request=++catalogRequest;
+  if(!secrets.login||!secrets.password){restoreCountryFallback();return}
+  try{
+    const data=await callApi('/api/catalog',{login:secrets.login,password:secrets.password});
+    if(request!==catalogRequest)return;
+    if(!Array.isArray(data.locations)||!data.locations.length)throw new Error('Empty catalog');
+    const catalog=Object.create(null);
+    for(const location of data.locations){
+      if(!Number.isInteger(location.location_code)||location.location_code<=0||!location.location_name||!Array.isArray(location.languages)||!location.languages.length)throw new Error('Invalid catalog');
+      catalog[location.location_code]=location;
+    }
+    const locationCode=qs('loc').value,languageCode=qs('lang').value;
+    const locations=Object.values(catalog);
+    const options=locations.map(location=>'<option value="'+location.location_code+'">'+esc(location.location_name)+'</option>').join('');
+    countryCatalog=catalog;
+    qs('loc').innerHTML=options;
+    qs('loc').value=catalog[locationCode]?locationCode:String(locations[0].location_code);
+    syncLang(languageCode);
+  }catch(_){
+    if(request!==catalogRequest)return;
+    restoreCountryFallback();
+    status('Не удалось загрузить каталог стран и языков. Доступен прежний список; повторите сохранение ключей, чтобы загрузить каталог.','warn');
+  }
+}
 
 async function getVolume(){
   if(!credsOk())return;
@@ -219,10 +261,10 @@ function exportCurrent(){
 
 function openSecrets(){qs('secretModal').classList.add('open');qs('dfsLogin').value=secrets.login;qs('dfsPassword').value=secrets.password}
 function closeSecrets(){qs('secretModal').classList.remove('open')}
-function useForSession(){secrets={login:qs('dfsLogin').value.trim(),password:qs('dfsPassword').value};sessionStorage.setItem('dfs-session',JSON.stringify(secrets));sstatus('Сохранено только для этой вкладки','ok');setTimeout(closeSecrets,350)}
-function forgetSecrets(){secrets={login:'',password:''};sessionStorage.removeItem('dfs-session');qs('dfsLogin').value='';qs('dfsPassword').value='';sstatus('Ключи забыты','ok')}
+function useForSession(){secrets={login:qs('dfsLogin').value.trim(),password:qs('dfsPassword').value};sessionStorage.setItem('dfs-session',JSON.stringify(secrets));sstatus('Сохранено только для этой вкладки','ok');setTimeout(closeSecrets,350);loadCountryCatalog()}
+function forgetSecrets(){secrets={login:'',password:''};sessionStorage.removeItem('dfs-session');qs('dfsLogin').value='';qs('dfsPassword').value='';catalogRequest++;restoreCountryFallback();sstatus('Ключи забыты','ok')}
 
-(function init(){try{const s=JSON.parse(sessionStorage.getItem('dfs-session')||'null');if(s)secrets=s}catch(_){}syncLang();updateBasketCount();if(!secrets.login||!secrets.password)openSecrets();if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{})})();
+(function init(){try{const s=JSON.parse(sessionStorage.getItem('dfs-session')||'null');if(s)secrets=s}catch(_){}syncLang();updateBasketCount();if(!secrets.login||!secrets.password)openSecrets();else loadCountryCatalog();if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{})})();
 </script>
 </body>
 </html>
