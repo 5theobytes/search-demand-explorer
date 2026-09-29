@@ -222,6 +222,84 @@ def dfs_post(endpoint, payload, login, password, timeout=DFS_TIMEOUT_SECONDS):
     return asyncio.run(_dfs_post(endpoint, payload, login, password, timeout))
 
 
+async def _dfs_get(endpoint, login, password, timeout):
+    request_timeout = aiohttp.ClientTimeout(total=timeout)
+    async with aiohttp.ClientSession(timeout=request_timeout) as session:
+        async with session.get(
+            DFS_BASE + "/" + endpoint,
+            headers=auth_header(login, password),
+        ) as response:
+            response.raise_for_status()
+            try:
+                data = await response.json()
+            except (aiohttp.ClientError, ValueError) as exc:
+                raise InvalidDataForSEOResponse(
+                    "DataForSEO вернул некорректный или пустой JSON"
+                ) from exc
+            return validate_dataforseo_response(data)
+
+
+def dfs_get(endpoint, login, password, timeout=DFS_TIMEOUT_SECONDS):
+    return asyncio.run(_dfs_get(endpoint, login, password, timeout))
+
+
+def normalize_country_catalog(data):
+    countries = {}
+    for task in data["tasks"]:
+        if task.get("status_code") != 20000:
+            continue
+        for location in task.get("result") or []:
+            if location.get("location_type") != "Country":
+                continue
+            location_code = location.get("location_code")
+            location_name = location.get("location_name")
+            country_iso_code = location.get("country_iso_code")
+            if (isinstance(location_code, bool)
+                    or not isinstance(location_code, int)
+                    or location_code <= 0
+                    or not isinstance(location_name, str)
+                    or not location_name.strip()
+                    or not isinstance(country_iso_code, str)
+                    or not country_iso_code.strip()):
+                raise InvalidDataForSEOResponse("Некорректная страна в каталоге")
+
+            raw_languages = location.get("available_languages")
+            if not isinstance(raw_languages, list):
+                raise InvalidDataForSEOResponse("Некорректный список языков страны")
+            languages = {}
+            for language in raw_languages:
+                if not isinstance(language, dict):
+                    raise InvalidDataForSEOResponse("Некорректный язык в каталоге")
+                sources = language.get("available_sources")
+                if not isinstance(sources, list):
+                    raise InvalidDataForSEOResponse("Некорректные источники языка")
+                if "google" not in sources:
+                    continue
+                code = language.get("language_code")
+                name = language.get("language_name")
+                if (not isinstance(code, str) or not code.strip()
+                        or not isinstance(name, str) or not name.strip()):
+                    raise InvalidDataForSEOResponse("Некорректные данные языка")
+                code = code.strip()
+                languages[code] = {
+                    "language_code": code,
+                    "language_name": name.strip(),
+                }
+            if languages:
+                countries[location_code] = {
+                    "location_code": location_code,
+                    "location_name": location_name.strip(),
+                    "country_iso_code": country_iso_code.strip(),
+                    "languages": sorted(
+                        languages.values(),
+                        key=lambda row: row["language_name"].casefold(),
+                    ),
+                }
+    if not countries:
+        raise InvalidDataForSEOResponse("В каталоге нет поддерживаемых стран Google")
+    return sorted(countries.values(), key=lambda row: row["location_name"].casefold())
+
+
 def task_error(task):
     return f"{task.get('status_code')}: {task.get('status_message') or 'Unknown DataForSEO error'}"
 
@@ -401,6 +479,33 @@ def icon():
     <path d="M151 220h138M220 151v138" stroke="#e2e8f0" stroke-width="24" stroke-linecap="round"/>
     </svg>"""
     return Response(svg, mimetype="image/svg+xml")
+
+
+@app.route("/api/catalog", methods=["POST"])
+def catalog():
+    body = clean_body()
+    if not isinstance(body, dict):
+        return jsonify({"error": "Ожидается JSON-объект с DataForSEO credentials"}), 400
+    try:
+        login, password = dataforseo_credentials(body)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    try:
+        data = dfs_get("dataforseo_labs/locations_and_languages", login, password)
+        for api_task in data["tasks"]:
+            if api_task.get("status_code") != 20000:
+                error = "DataForSEO: " + task_error(api_task)
+                for secret in (login, password):
+                    error = error.replace(secret, "[redacted]")
+                return jsonify({"error": error}), 502
+        return jsonify({"locations": normalize_country_catalog(data)})
+    except InvalidDataForSEOResponse:
+        return jsonify({"error": "Каталог DataForSEO пустой или некорректный"}), 502
+    except aiohttp.ClientResponseError as exc:
+        return jsonify({"error": "DataForSEO HTTP error: " + str(exc.status)}), 502
+    except (aiohttp.ClientError, asyncio.TimeoutError):
+        return jsonify({"error": "Не удалось получить каталог DataForSEO"}), 502
 
 
 @app.route("/api/volume", methods=["POST"])
