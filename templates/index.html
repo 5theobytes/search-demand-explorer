@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7c3aed">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg">
+<title>Search Demand Explorer</title>
+<style>
+:root{color-scheme:dark;--bg:#0f1117;--panel:#171a24;--line:#2d3148;--text:#e5e7eb;--muted:#94a3b8;--accent:#7c3aed;--accent2:#a78bfa}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+button,input,textarea,select{font:inherit}button{cursor:pointer}.top{position:sticky;top:0;z-index:5;display:flex;gap:10px;align-items:center;padding:12px 16px;background:#11131bcc;border-bottom:1px solid var(--line);backdrop-filter:blur(12px)}.top h1{margin:0;font-size:16px;flex:1}.wrap{max-width:1100px;margin:0 auto;padding:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}input,textarea,select{width:100%;border:1px solid #3a4058;background:#10131c;color:var(--text);border-radius:9px;padding:10px 11px;outline:none}textarea{min-height:120px;resize:vertical}.btn{border:0;border-radius:9px;padding:10px 14px;font-weight:650;background:#252a3b;color:var(--text)}.primary{background:var(--accent)}.ghost{border:1px solid var(--line);background:transparent}.danger{background:#3a171a;color:#fecaca}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.spacer{flex:1}.status{margin-top:10px;color:var(--muted);font-size:13px}.status.err{color:#fca5a5}.status.ok{color:#86efac}.status.warn{color:#fbbf24}.tiny{font-size:12px;color:var(--muted)}.scroll{overflow:auto;border:1px solid var(--line);border-radius:12px}table{width:100%;border-collapse:collapse}th,td{padding:9px 10px;border-bottom:1px solid #262b3d;white-space:nowrap;text-align:left}th{font-size:12px;color:var(--muted);background:#11141d;position:sticky;top:0}td input[type=checkbox],th input[type=checkbox]{width:auto}.vol{font-weight:700;color:var(--accent2)}.drawer{position:fixed;top:0;right:0;bottom:0;width:min(92vw,440px);background:#131722;border-left:1px solid var(--line);z-index:20;transform:translateX(100%);transition:.2s;padding:16px;overflow:auto}.drawer.open{transform:none}.backdrop{position:fixed;inset:0;background:#0008;display:none;z-index:19}.backdrop.open{display:block}.basket-item{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #262b3d}.basket-item input{width:auto}.basket-item button{padding:6px 8px}.badge{display:inline-block;padding:2px 7px;border-radius:999px;background:#292f43;font-size:11px}
+.modal{position:fixed;inset:0;background:#000a;display:none;align-items:flex-end;z-index:30}.modal.open{display:flex}.sheet{width:100%;background:#151822;border-radius:18px 18px 0 0;padding:18px;max-height:92vh;overflow:auto}
+@media(min-width:720px){.modal{align-items:center;justify-content:center}.sheet{max-width:560px;border-radius:18px;border:1px solid var(--line)}}
+@media(max-width:700px){.grid3{grid-template-columns:1fr}.wrap{padding:12px}.card{padding:13px}th,td{padding:8px;font-size:13px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Search Demand Explorer</h1>
+  <button class="btn ghost" onclick="openBasket()">Рабочий набор <span id="basketCount" class="badge">0</span></button>
+  <button class="btn ghost" onclick="openSecrets()">Ключи</button>
+</header>
+
+<main class="wrap">
+  <section class="card">
+    <div class="grid3">
+      <div><label>Страна</label><select id="loc" onchange="syncLang()">
+        <option value="">— выбрать —</option>
+        <option value="2840" data-langs="en">США</option><option value="2826" data-langs="en">UK</option>
+        <option value="2764" data-langs="th,en,ru">Таиланд</option><option value="2784" data-langs="ar,en">ОАЭ</option>
+        <option value="2682" data-langs="ar,en">Саудовская Аравия</option><option value="2414" data-langs="ar,en">Кувейт</option>
+        <option value="2398" data-langs="ru,en">Казахстан</option><option value="2268" data-langs="ka,en,ru">Грузия</option>
+        <option value="2011" data-langs="hy,en,ru">Армения</option><option value="2031" data-langs="az,en,ru">Азербайджан</option>
+        <option value="2643" data-langs="ru">Россия</option><option value="2804" data-langs="uk,ru">Украина</option>
+      </select></div>
+      <div><label>Язык</label><select id="lang"><option value="">—</option></select></div>
+      <div><label>Максимум related keywords</label><input id="maxResults" type="number" min="20" max="5000" value="500"></div>
+    </div>
+
+    <div class="card" style="margin-top:12px;background:#121722">
+      <div class="row" style="margin-bottom:8px"><b>Источники направлений</b><span class="tiny">Можно включать отдельно</span></div>
+      <div class="row">
+        <label class="checkbox"><input type="checkbox" class="src" value="google_ads" checked> Google Ads related</label>
+        <label class="checkbox"><input type="checkbox" class="src" value="labs_ideas"> Labs ideas</label>
+        <label class="checkbox"><input type="checkbox" class="src" value="labs_suggestions"> Long-tail suggestions</label>
+        <label class="checkbox"><input type="checkbox" class="src" value="labs_related"> Searches related to</label>
+        <label class="checkbox"><input type="checkbox" class="src" value="autocomplete"> Autocomplete</label>
+        <label class="checkbox"><input type="checkbox" class="src" value="trends"> Trends: top + rising</label>
+        <label class="checkbox"><input type="checkbox" class="src" value="serp"> SERP: PAA / related / refinements</label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div style="max-width:170px"><label>Related depth</label><input id="relatedDepth" type="number" min="1" max="4" value="1"></div>
+        <div class="tiny">Depth 1 = ближе к seed; 2–4 = шире и дальше по цепочке.</div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <label>Seed-ключи — по одному на строку</label>
+      <textarea id="keywords" placeholder="solar panels&#10;home battery&#10;solar installer"></textarea>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <button class="btn primary" onclick="getVolume()">Проверить volume</button>
+      <button class="btn" onclick="discoverKeywords()">Собрать направления</button>
+      <span class="spacer"></span>
+      <button class="btn ghost" onclick="exportCurrent()">CSV</button>
+    </div>
+    <div id="status" class="status"></div>
+  </section>
+
+  <section class="card" id="resultsCard" style="display:none">
+    <div class="row" style="margin-bottom:10px">
+      <b id="resultTitle">Результаты</b>
+      <span id="resultMeta" class="tiny"></span>
+      <span class="spacer"></span>
+      <button class="btn ghost" onclick="addSelectedToBasket()">Добавить выбранные в набор</button>
+      <button class="btn ghost" onclick="addAllToBasket()">Добавить все</button>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th><input id="allResults" type="checkbox" onchange="toggleAllResults(this.checked)"></th><th>#</th><th>Keyword</th><th>Источник</th><th>Seed</th><th>Type</th><th>Volume</th><th>Score</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div id="backdrop" class="backdrop" onclick="closeBasket()"></div>
+<aside id="basket" class="drawer">
+  <div class="row"><b style="font-size:18px">Рабочий набор</b><span class="spacer"></span><button class="btn ghost" onclick="closeBasket()">✕</button></div>
+  <p class="tiny">Сюда попадают только те ключи, которые ты явно выбрала. Набор хранится локально на устройстве.</p>
+  <div class="row" style="margin-bottom:10px">
+    <button class="btn" onclick="useSelectedAsSeeds()">Выбранные → seeds</button>
+    <button class="btn ghost" onclick="dedupeBasket()">Дедуплицировать</button>
+    <button class="btn danger" onclick="removeSelectedBasket()">Удалить выбранные</button>
+    <button class="btn danger" onclick="clearBasket()">Очистить всё</button>
+  </div>
+  <div id="basketList"></div>
+</aside>
+
+<div class="modal" id="secretModal" onclick="if(event.target===this)closeSecrets()">
+  <div class="sheet">
+    <div class="row"><b style="font-size:18px">DataForSEO</b><span class="spacer"></span><button class="btn ghost" onclick="closeSecrets()">✕</button></div>
+    <p class="tiny">Логин и API password по умолчанию живут только в текущей вкладке и исчезают после её закрытия.</p>
+    <div style="margin-top:12px"><label>Login</label><input id="dfsLogin" autocomplete="off" autocapitalize="none"></div>
+    <div style="margin-top:12px"><label>API password</label><input id="dfsPassword" type="password" autocomplete="off"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn primary" onclick="useForSession()">Использовать в этой вкладке</button>
+      <button class="btn danger" onclick="forgetSecrets()">Забыть</button>
+    </div>
+    <div id="secretStatus" class="status"></div>
+  </div>
+</div>
+
+<script>
+const LANG={en:'English',ru:'Русский',th:'ไทย',ar:'العربية',uk:'Українська',ka:'ქართული',hy:'Հայերեն',az:'Azərbaycan'};
+let secrets={login:'',password:''}, rows=[], selected=new Set();
+
+function qs(id){return document.getElementById(id)}
+function status(msg,type=''){qs('status').textContent=msg;qs('status').className='status '+type}
+function sstatus(msg,type=''){qs('secretStatus').textContent=msg;qs('secretStatus').className='status '+type}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function currentCtx(){return {location_code:Number(qs('loc').value)||null,language_code:qs('lang').value}}
+function currentKeywords(){return qs('keywords').value.split(/\n+/).map(x=>x.trim()).filter(Boolean)}
+function credsOk(){if(!secrets.login||!secrets.password){openSecrets();sstatus('Введите DataForSEO login и API password','err');return false}return true}
+function syncLang(){const opt=qs('loc').selectedOptions[0],ls=(opt?.dataset.langs||'').split(',').filter(Boolean);qs('lang').innerHTML=ls.length?ls.map(x=>'<option value="'+x+'">'+(LANG[x]||x)+'</option>').join(''):'<option value="">—</option>'}
+async function callApi(url,payload){const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),cache:'no-store'});let d={};try{d=await r.json()}catch(_){}if(!r.ok||d.error)throw new Error(d.error||('HTTP '+r.status));return d}
+
+async function getVolume(){
+  if(!credsOk())return;
+  const keywords=currentKeywords(),ctx=currentCtx();
+  if(!ctx.location_code)return status('Выберите страну','err');if(!keywords.length)return status('Введите seed-ключи','err');
+  status('Проверяю volume…');
+  try{const d=await callApi('/api/volume',{login:secrets.login,password:secrets.password,keywords,...ctx});rows=d.rows||[];selected=new Set();renderResults('Volume',d);status('Готово · cost $'+Number(d.cost||0).toFixed(4),'ok')}catch(e){status(e.message,'err')}
+}
+
+async function discoverKeywords(){
+  if(!credsOk())return;
+  const keywords=currentKeywords(),ctx=currentCtx();
+  if(!ctx.location_code)return status('Выберите страну','err');if(!keywords.length)return status('Введите seed-ключи','err');
+  const sources=[...document.querySelectorAll('.src:checked')].map(x=>x.value);
+  if(!sources.length)return status('Выберите хотя бы один источник','err');
+  status('Собираю направления из '+sources.length+' источников…');
+  try{
+    const d=await callApi('/api/discover',{
+      login:secrets.login,password:secrets.password,keywords,
+      sources,limit:Number(qs('maxResults').value)||500,
+      related_depth:Number(qs('relatedDepth').value)||1,...ctx
+    });
+    rows=d.rows||[];selected=new Set();renderResults('Search directions',d);
+const breakdown=Object.entries(d.costs||{}).map(([k,v])=>k+' $'+Number(v).toFixed(4)).join(' · ');
+    const errors=d.errors||[];
+    const details=errors.slice(0,2).map(x=>String(x).slice(0,120)).join(' · ');
+    const warn=errors.length?' · предупреждения ('+errors.length+'): '+details+(errors.length>2?' …':''):'';
+    const costText=d.cost_complete===false?'учтённый cost $'+Number(d.cost||0).toFixed(4)+' (итог неизвестен)':'cost $'+Number(d.cost||0).toFixed(4);
+    status('Готово: '+rows.length+' уникальных из '+Number(d.raw_rows||rows.length)+' · '+costText+(breakdown?' · '+breakdown:'')+warn,errors.length?'warn':'ok')
+  }catch(e){status(e.message,'err')}
+}
+
+function renderResults(title,d){
+  qs('resultsCard').style.display='block';
+  qs('resultTitle').textContent=title;
+  qs('resultMeta').textContent=d.seed_count?('seeds: '+d.seed_count):'';
+  qs('allResults').checked=false;
+  qs('tbody').innerHTML=rows.map((r,i)=>'<tr>'+
+    '<td><input type="checkbox" '+(selected.has(i)?'checked':'')+' onchange="toggleResult('+i+',this.checked)"></td>'+
+    '<td>'+(i+1)+'</td>'+
+    '<td>'+esc(r.keyword)+'</td>'+
+    '<td>'+esc((r.sources||[r.source]).filter(Boolean).join(', '))+'</td>'+
+    '<td>'+esc((r.seeds||[r.seed]).filter(Boolean).join(' | '))+'</td>'+
+    '<td>'+esc(r.kind||'query')+'</td>'+
+    '<td class="vol">'+Number(r.volume||0).toLocaleString('ru-RU')+'</td>'+
+    '<td>'+(r.score==null?esc(r.score_label||'—'):esc(r.score))+'</td>'+
+  '</tr>').join('');
+}
+function toggleResult(i,on){on?selected.add(i):selected.delete(i)}
+function toggleAllResults(on){selected=on?new Set(rows.map((_,i)=>i)):new Set();renderResults(qs('resultTitle').textContent,{})}
+
+function basket(){try{return JSON.parse(localStorage.getItem('keyword-basket')||'[]')}catch(_){return[]}}
+function saveBasket(v){localStorage.setItem('keyword-basket',JSON.stringify(v));renderBasket();updateBasketCount()}
+function mergeIntoBasket(items){
+  const map=new Map(basket().map(x=>[String(x.keyword).toLowerCase(),x]));
+  for(const x of items){const k=String(x.keyword).trim().toLowerCase();if(!k)continue;if(!map.has(k)||(x.volume||0)>(map.get(k).volume||0))map.set(k,{keyword:x.keyword,volume:x.volume||0,selected:false})}
+  saveBasket([...map.values()].sort((a,b)=>(b.volume||0)-(a.volume||0)))
+}
+function addSelectedToBasket(){if(!selected.size)return;mergeIntoBasket([...selected].map(i=>rows[i]).filter(Boolean));openBasket()}
+function addAllToBasket(){mergeIntoBasket(rows);openBasket()}
+function updateBasketCount(){qs('basketCount').textContent=basket().length}
+function openBasket(){renderBasket();qs('basket').classList.add('open');qs('backdrop').classList.add('open')}
+function closeBasket(){qs('basket').classList.remove('open');qs('backdrop').classList.remove('open')}
+function renderBasket(){
+  const arr=basket();qs('basketList').innerHTML=arr.length?arr.map((x,i)=>'<div class="basket-item"><input type="checkbox" '+(x.selected?'checked':'')+' onchange="basketSelect('+i+',this.checked)"><span>'+esc(x.keyword)+'</span><span class="vol">'+Number(x.volume||0).toLocaleString('ru-RU')+'</span><button class="btn danger" onclick="removeBasketIndex('+i+')">✕</button></div>').join(''):'<p class="tiny">Набор пуст.</p>';updateBasketCount()
+}
+function basketSelect(i,on){const arr=basket();if(arr[i])arr[i].selected=on;saveBasket(arr)}
+function removeBasketIndex(i){const arr=basket();arr.splice(i,1);saveBasket(arr)}
+function removeSelectedBasket(){saveBasket(basket().filter(x=>!x.selected))}
+function clearBasket(){if(confirm('Очистить рабочий набор?'))saveBasket([])}
+function dedupeBasket(){mergeIntoBasket(basket())}
+function useSelectedAsSeeds(){
+  const arr=basket(),picked=arr.filter(x=>x.selected),use=picked.length?picked:arr;if(!use.length)return;
+  qs('keywords').value=use.map(x=>x.keyword).join('\n');closeBasket();window.scrollTo({top:0,behavior:'smooth'});status('В seeds загружено: '+use.length,'ok')
+}
+
+function exportCurrent(){
+  if(!rows.length)return;
+  const lines=[['Keyword','Sources','Seeds','Type','Volume','Score'],...rows.map(r=>[
+    r.keyword,
+    (r.sources||[r.source]).filter(Boolean).join('|'),
+    (r.seeds||[r.seed]).filter(Boolean).join('|'),
+    r.kind||'query',
+    r.volume||0,
+    r.score??r.score_label??''
+  ])].map(a=>a.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
+  const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='keywords.csv';a.click();URL.revokeObjectURL(a.href)
+}
+
+function openSecrets(){qs('secretModal').classList.add('open');qs('dfsLogin').value=secrets.login;qs('dfsPassword').value=secrets.password}
+function closeSecrets(){qs('secretModal').classList.remove('open')}
+function useForSession(){secrets={login:qs('dfsLogin').value.trim(),password:qs('dfsPassword').value};sessionStorage.setItem('dfs-session',JSON.stringify(secrets));sstatus('Сохранено только для этой вкладки','ok');setTimeout(closeSecrets,350)}
+function forgetSecrets(){secrets={login:'',password:''};sessionStorage.removeItem('dfs-session');qs('dfsLogin').value='';qs('dfsPassword').value='';sstatus('Ключи забыты','ok')}
+
+(function init(){try{const s=JSON.parse(sessionStorage.getItem('dfs-session')||'null');if(s)secrets=s}catch(_){}syncLang();updateBasketCount();if(!secrets.login||!secrets.password)openSecrets();if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{})})();
+</script>
+</body>
+</html>
