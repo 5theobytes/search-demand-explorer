@@ -118,6 +118,7 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.top{position:st
 const LANG={en:'English',ru:'Русский',th:'ไทย',ar:'العربية',uk:'Українська',ka:'ქართული',hy:'Հայերեն',az:'Azərbaycan'};
 let secrets={login:'',password:''}, rows=[], selected=new Set();
 const fallbackCountryOptions=document.getElementById('loc').innerHTML;
+const catalogWarning='Не удалось загрузить каталог стран и языков. Доступен прежний список; повторите сохранение ключей, чтобы загрузить каталог.';
 let countryCatalog=null, catalogRequest=0;
 
 function qs(id){return document.getElementById(id)}
@@ -157,16 +158,17 @@ async function loadCountryCatalog(){
       catalog[location.location_code]=location;
     }
     const locationCode=qs('loc').value,languageCode=qs('lang').value;
-    const locations=Object.values(catalog);
+    const locations=Object.values(catalog).sort((a,b)=>a.location_name.localeCompare(b.location_name,undefined,{sensitivity:'accent'}));
     const options=locations.map(location=>'<option value="'+location.location_code+'">'+esc(location.location_name)+'</option>').join('');
     countryCatalog=catalog;
     qs('loc').innerHTML=options;
     qs('loc').value=catalog[locationCode]?locationCode:String(locations[0].location_code);
     syncLang(languageCode);
+    if(qs('status').textContent===catalogWarning&&qs('status').classList.contains('warn'))status('');
   }catch(_){
     if(request!==catalogRequest)return;
     restoreCountryFallback();
-    status('Не удалось загрузить каталог стран и языков. Доступен прежний список; повторите сохранение ключей, чтобы загрузить каталог.','warn');
+    status(catalogWarning,'warn');
   }
 }
 
