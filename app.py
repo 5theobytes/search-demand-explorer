@@ -4,6 +4,7 @@ import time
 import aiohttp
 from base64 import b64encode
 from flask import Flask, jsonify, render_template, request, Response
+from werkzeug.exceptions import BadRequest
 
 app = Flask(__name__)
 
@@ -40,7 +41,15 @@ def add_security_headers(response):
 
 
 def clean_body():
-    return request.get_json(silent=True) or {}
+    if not request.is_json:
+        raise ValueError("Ожидается Content-Type application/json")
+    try:
+        body = request.get_json(silent=False)
+    except BadRequest as exc:
+        raise ValueError("Некорректный JSON") from exc
+    if not isinstance(body, dict):
+        raise ValueError("Ожидается JSON-объект")
+    return body
 
 
 def dataforseo_credentials(body):
@@ -483,10 +492,8 @@ def icon():
 
 @app.route("/api/catalog", methods=["POST"])
 def catalog():
-    body = clean_body()
-    if not isinstance(body, dict):
-        return jsonify({"error": "Ожидается JSON-объект с DataForSEO credentials"}), 400
     try:
+        body = clean_body()
         login, password = dataforseo_credentials(body)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
@@ -510,8 +517,8 @@ def catalog():
 
 @app.route("/api/volume", methods=["POST"])
 def volume():
-    body = clean_body()
     try:
+        body = clean_body()
         login, password = dataforseo_credentials(body)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
@@ -553,8 +560,8 @@ def volume():
 
 @app.route("/api/discover", methods=["POST"])
 def discover():
-    body = clean_body()
     try:
+        body = clean_body()
         login, password = dataforseo_credentials(body)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
