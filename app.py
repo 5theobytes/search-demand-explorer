@@ -4,7 +4,7 @@ import time
 import aiohttp
 from base64 import b64encode
 from flask import Flask, jsonify, render_template, request, Response
-from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import BadRequest, UnsupportedMediaType
 
 app = Flask(__name__)
 
@@ -40,11 +40,14 @@ def add_security_headers(response):
     return response
 
 
+@app.errorhandler(UnsupportedMediaType)
+def handle_unsupported_media_type(_):
+    return jsonify({"error": "Ожидается Content-Type application/json"}), 415
+
+
 def clean_body():
-    if not request.is_json:
-        raise ValueError("Ожидается Content-Type application/json")
     try:
-        body = request.get_json(silent=False)
+        body = request.get_json()
     except BadRequest as exc:
         raise ValueError("Некорректный JSON") from exc
     if not isinstance(body, dict):
