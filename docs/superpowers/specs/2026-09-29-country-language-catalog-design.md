@@ -1,59 +1,59 @@
-# Каталог стран и языков — спецификация
+# Country and language catalog — specification
 
-**Статус:** одобрено пользователем
-**Дата:** 2026-09-29
+**Status:** approved by the owner
+**Date:** 2026-09-29
 
-## Цель
+## Goal
 
-Заменить короткий вручную заданный список стран и языков на актуальный каталог поддерживаемых Google-локаций и языков DataForSEO. Один запуск по-прежнему выполняется для одной выбранной страны и одного языка.
+Replace the short manually maintained country and language list with the current catalog of supported Google locations and languages from DataForSEO. Each run continues to use one selected country and one language.
 
-## Текущее поведение
+## Existing behavior
 
-- `templates/index.html` содержит 12 стран и их языки в `data-langs`, а также вручную заданные названия восьми языков.
-- `/api/volume` и `/api/discover` уже принимают `location_code` и `language_code` и передают их в запросы DataForSEO.
-- Discovery может вызывать Google Ads, DataForSEO Labs, Autocomplete, Google Trends и SERP; ошибки отдельных источников уже показываются как предупреждения.
+- `templates/index.html` contains 12 countries with `data-langs` and manually maintained names for eight languages.
+- `/api/volume` and `/api/discover` accept `location_code` and `language_code` and pass them to provider requests.
+- Discovery can call Google Ads, DataForSEO Labs, Autocomplete, Google Trends and SERP; source-specific errors appear as warnings.
 
-## Проектное решение
+## Design
 
-### Источник каталога
+### Catalog source
 
-Добавить `POST /api/catalog`, принимающий DataForSEO login и API password так же, как существующие API-маршруты. Backend загружает справочник `GET /v3/dataforseo_labs/locations_and_languages` с использованием существующего `DFS_BASE` и `auth_header`.
+Add `POST /api/catalog`, accepting a DataForSEO login and API password in the same way as the existing API routes. The backend fetches `GET /v3/dataforseo_labs/locations_and_languages` using the existing `DFS_BASE` and `auth_header`.
 
-Маршрут возвращает только записи уровня `Country`. В списке языков каждой страны остаются только пары, где `available_sources` содержит `google`; страна включается, если у неё остался хотя бы один такой язык. Для каждой страны возвращаются `location_code`, `location_name`, `country_iso_code` и список `language_code`/`language_name`. Запрос справочника бесплатный. Ответ проверяется на корректную структуру; учётные данные и справочник не сохраняются на сервере.
+Return only `Country` records. Keep language pairs whose `available_sources` includes `google`; include a country only when at least one supported language remains. Return `location_code`, `location_name`, `country_iso_code` and its `language_code`/`language_name` pairs. The catalog request is free. Validate the response structure; neither credentials nor catalog data are stored on the server.
 
-Этот справочник определяет поддерживаемые пары страна-язык для DataForSEO Labs. Другие Google-источники в текущем приложении могут иметь отдельные ограничения; их ошибки остаются в существующем поле предупреждений discovery.
+This catalog defines supported country-language pairs for DataForSEO Labs. Other Google sources may have separate restrictions; their errors remain in the existing discovery warnings field.
 
-### Интерфейс
+### Interface
 
-- После восстановления или сохранения DataForSEO credentials клиент один раз загружает каталог через `/api/catalog`.
-- Селектор страны наполняется странами каталога; селектор языка — языками выбранной страны.
-- При смене страны выбранный язык сохраняется, если он доступен и для новой страны; иначе выбирается первый опубликованный язык.
-- Существующий список сохраняется как fallback, если справочник временно недоступен. Интерфейс показывает понятное сообщение о неудачной загрузке, но оставляет доступным текущий выбор.
-- Данные каталога существуют только в памяти вкладки. Credentials продолжают храниться только согласно текущему поведению приложения в `sessionStorage`.
+- Load `/api/catalog` once after restoring or saving credentials.
+- Populate the country selector from the catalog, and the language selector from the selected country's languages.
+- When the country changes, retain the language if supported there; otherwise select the first published language.
+- Preserve the existing fallback list when the catalog is unavailable. Show an understandable warning while keeping the current selection usable.
+- Keep catalog data only in tab memory. Credentials retain the application's existing `sessionStorage` behavior.
 
-### Выполнение поиска
+### Search execution
 
-Оба существующих маршрута поиска и формат запросов остаются без изменений. В одном запуске используется одна выбранная страна; массовый fan-out по нескольким странам не входит в эту фичу. Для необязательных источников сохраняется текущее поведение частичных результатов и предупреждений.
+Keep both search routes and their request formats unchanged. A run uses one selected country; fan-out across multiple countries is outside this feature. Preserve partial results and warnings for optional sources.
 
-## Критерии готовности
+## Acceptance criteria
 
-1. После успешной загрузки справочника выбор показывает поддерживаемые страны, а не только прежние 12 значений.
-2. Для выбранной страны доступны только языки, указанные в записи этой страны.
-3. Выбранные коды продолжают передаваться в `/api/volume` и `/api/discover` без изменения семантики поиска.
-4. Ошибка справочника не раскрывает credentials и оставляет доступен прежний fallback-список с сообщением об ошибке.
-5. Запуск поиска остаётся запросом по одной стране.
+1. A successful catalog load shows supported countries beyond the original 12 values.
+2. Only the selected country's published languages are available.
+3. Selected codes continue to reach `/api/volume` and `/api/discover` without changing search semantics.
+4. Catalog failures disclose no credentials and retain the fallback list with an error message.
+5. Search remains a single-country operation.
 
-## За пределами объёма
+## Out of scope
 
-- Одновременный запуск поиска по нескольким или всем странам.
-- Каталоги для поисковых систем, отличных от Google.
-- Серверное хранение credentials или справочника.
-- Переработка экранов, результатов и схемы API поиска.
+- Searching several or all countries simultaneously.
+- Catalogs for search engines other than Google.
+- Server-side storage of credentials or catalog data.
+- Redesigning screens, results or the search API schema.
 
-## Ограничения и риски
+## Limitations and risks
 
-Список отражает покрытие выбранного справочника DataForSEO, а не полный перечень государств мира. Провайдер может добавлять или удалять страны и языки. Наличие пары страна-язык в общем справочнике не гарантирует, что каждый отдельный подключённый источник вернёт данные для этой пары; такие ошибки уже обрабатываются в текущем discovery-потоке.
+The list reflects the selected DataForSEO catalog's coverage rather than every country in the world. The provider may add or remove countries and languages. A pair's presence does not guarantee that every connected source returns data for it; the existing discovery flow handles those errors.
 
-## Проверка реализации
+## Implementation verification
 
-При реализации следует проверить формирование каталога на ответе DataForSEO, fallback при ошибке справочника, смену страны и сохранение допустимого языка, а также передачу выбранных кодов в оба поисковых маршрута. Автоматизированные тесты в этой задаче не добавляются и не запускаются.
+Check catalog construction from the provider response, fallback on failure, country changes with retention of a supported language, and passing selected codes to both search routes. The original catalog task did not add or run automated tests.

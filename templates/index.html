@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -19,28 +19,28 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.top{position:st
 <body>
 <header class="top">
   <h1>Search Demand Explorer</h1>
-  <button class="btn ghost" onclick="openBasket()">Рабочий набор <span id="basketCount" class="badge">0</span></button>
-  <button class="btn ghost" onclick="openSecrets()">Ключи</button>
+  <button class="btn ghost" onclick="openBasket()">Working basket <span id="basketCount" class="badge">0</span></button>
+  <button class="btn ghost" onclick="openSecrets()">Credentials</button>
 </header>
 
 <main class="wrap">
   <section class="card">
     <div class="grid3">
-      <div><label>Страна</label><select id="loc" onchange="syncLang()">
-        <option value="">— выбрать —</option>
-        <option value="2840" data-langs="en">США</option><option value="2826" data-langs="en">UK</option>
-        <option value="2764" data-langs="th,en,ru">Таиланд</option><option value="2784" data-langs="ar,en">ОАЭ</option>
-        <option value="2682" data-langs="ar,en">Саудовская Аравия</option><option value="2414" data-langs="ar,en">Кувейт</option>
-        <option value="2398" data-langs="ru,en">Казахстан</option><option value="2268" data-langs="ka,en,ru">Грузия</option>
-        <option value="2011" data-langs="hy,en,ru">Армения</option><option value="2031" data-langs="az,en,ru">Азербайджан</option>
-        <option value="2643" data-langs="ru">Россия</option><option value="2804" data-langs="uk,ru">Украина</option>
+      <div><label>Country</label><select id="loc" onchange="syncLang()">
+        <option value="">— select —</option>
+        <option value="2840" data-langs="en">United States</option><option value="2826" data-langs="en">UK</option>
+        <option value="2764" data-langs="th,en,ru">Thailand</option><option value="2784" data-langs="ar,en">UAE</option>
+        <option value="2682" data-langs="ar,en">Saudi Arabia</option><option value="2414" data-langs="ar,en">Kuwait</option>
+        <option value="2398" data-langs="ru,en">Kazakhstan</option><option value="2268" data-langs="ka,en,ru">Georgia</option>
+        <option value="2011" data-langs="hy,en,ru">Armenia</option><option value="2031" data-langs="az,en,ru">Azerbaijan</option>
+        <option value="2643" data-langs="ru">Russia</option><option value="2804" data-langs="uk,ru">Ukraine</option>
       </select></div>
-      <div><label>Язык</label><select id="lang"><option value="">—</option></select></div>
-      <div><label>Максимум related keywords</label><input id="maxResults" type="number" min="20" max="5000" value="500"></div>
+      <div><label>Language</label><select id="lang"><option value="">—</option></select></div>
+      <div><label>Maximum related keywords</label><input id="maxResults" type="number" min="20" max="5000" value="500"></div>
     </div>
 
     <div class="card" style="margin-top:12px;background:#121722">
-      <div class="row" style="margin-bottom:8px"><b>Источники направлений</b><span class="tiny">Можно включать отдельно</span></div>
+      <div class="row" style="margin-bottom:8px"><b>Discovery sources</b><span class="tiny">Select sources individually</span></div>
       <div class="row">
         <label class="checkbox"><input type="checkbox" class="src" value="google_ads" checked> Google Ads related</label>
         <label class="checkbox"><input type="checkbox" class="src" value="labs_ideas"> Labs ideas</label>
@@ -52,18 +52,18 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.top{position:st
       </div>
       <div class="row" style="margin-top:10px">
         <div style="max-width:170px"><label>Related depth</label><input id="relatedDepth" type="number" min="1" max="4" value="1"></div>
-        <div class="tiny">Depth 1 = ближе к seed; 2–4 = шире и дальше по цепочке.</div>
+        <div class="tiny">Depth 1 stays close to the seed; 2–4 explores broader related searches.</div>
       </div>
     </div>
 
     <div style="margin-top:12px">
-      <label>Seed-ключи — по одному на строку</label>
+      <label>Seed keywords — one per line</label>
       <textarea id="keywords" placeholder="solar panels&#10;home battery&#10;solar installer"></textarea>
     </div>
 
     <div class="row" style="margin-top:12px">
-      <button class="btn primary" onclick="getVolume()">Проверить volume</button>
-      <button class="btn" onclick="discoverKeywords()">Собрать направления</button>
+      <button class="btn primary" onclick="getVolume()">Check volume</button>
+      <button class="btn" onclick="discoverKeywords()">Discover keywords</button>
       <span class="spacer"></span>
       <button class="btn ghost" onclick="exportCurrent()">CSV</button>
     </div>
@@ -72,15 +72,15 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.top{position:st
 
   <section class="card" id="resultsCard" style="display:none">
     <div class="row" style="margin-bottom:10px">
-      <b id="resultTitle">Результаты</b>
+      <b id="resultTitle">Results</b>
       <span id="resultMeta" class="tiny"></span>
       <span class="spacer"></span>
-      <button class="btn ghost" onclick="addSelectedToBasket()">Добавить выбранные в набор</button>
-      <button class="btn ghost" onclick="addAllToBasket()">Добавить все</button>
+      <button class="btn ghost" onclick="addSelectedToBasket()">Add selected to basket</button>
+      <button class="btn ghost" onclick="addAllToBasket()">Add all</button>
     </div>
     <div class="scroll">
       <table>
-        <thead><tr><th><input id="allResults" type="checkbox" onchange="toggleAllResults(this.checked)"></th><th>#</th><th>Keyword</th><th>Источник</th><th>Seed</th><th>Type</th><th>Volume</th><th>Score</th></tr></thead>
+        <thead><tr><th><input id="allResults" type="checkbox" onchange="toggleAllResults(this.checked)"></th><th>#</th><th>Keyword</th><th>Source</th><th>Seed</th><th>Type</th><th>Volume</th><th>Score</th></tr></thead>
         <tbody id="tbody"></tbody>
       </table>
     </div>
@@ -89,13 +89,13 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.top{position:st
 
 <div id="backdrop" class="backdrop" onclick="closeBasket()"></div>
 <aside id="basket" class="drawer">
-  <div class="row"><b style="font-size:18px">Рабочий набор</b><span class="spacer"></span><button class="btn ghost" onclick="closeBasket()">✕</button></div>
-  <p class="tiny">Сюда попадают только те ключи, которые ты явно выбрала. Набор хранится локально на устройстве.</p>
+  <div class="row"><b style="font-size:18px">Working basket</b><span class="spacer"></span><button class="btn ghost" onclick="closeBasket()">✕</button></div>
+  <p class="tiny">Only keywords you explicitly select are added here. The basket is stored locally on your device.</p>
   <div class="row" style="margin-bottom:10px">
-    <button class="btn" onclick="useSelectedAsSeeds()">Выбранные → seeds</button>
-    <button class="btn ghost" onclick="dedupeBasket()">Дедуплицировать</button>
-    <button class="btn danger" onclick="removeSelectedBasket()">Удалить выбранные</button>
-    <button class="btn danger" onclick="clearBasket()">Очистить всё</button>
+    <button class="btn" onclick="useSelectedAsSeeds()">Selected → seeds</button>
+    <button class="btn ghost" onclick="dedupeBasket()">Remove duplicates</button>
+    <button class="btn danger" onclick="removeSelectedBasket()">Remove selected</button>
+    <button class="btn danger" onclick="clearBasket()">Clear all</button>
   </div>
   <div id="basketList"></div>
 </aside>
@@ -103,22 +103,22 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.top{position:st
 <div class="modal" id="secretModal" onclick="if(event.target===this)closeSecrets()">
   <div class="sheet">
     <div class="row"><b style="font-size:18px">DataForSEO</b><span class="spacer"></span><button class="btn ghost" onclick="closeSecrets()">✕</button></div>
-    <p class="tiny">Логин и API password по умолчанию живут только в текущей вкладке и исчезают после её закрытия.</p>
+    <p class="tiny">Your login and API password are stored only in this tab by default and disappear when the tab is closed.</p>
     <div style="margin-top:12px"><label>Login</label><input id="dfsLogin" autocomplete="off" autocapitalize="none"></div>
     <div style="margin-top:12px"><label>API password</label><input id="dfsPassword" type="password" autocomplete="off"></div>
     <div class="row" style="margin-top:14px">
-      <button class="btn primary" onclick="useForSession()">Использовать в этой вкладке</button>
-      <button class="btn danger" onclick="forgetSecrets()">Забыть</button>
+      <button class="btn primary" onclick="useForSession()">Use in this tab</button>
+      <button class="btn danger" onclick="forgetSecrets()">Clear credentials</button>
     </div>
     <div id="secretStatus" class="status"></div>
   </div>
 </div>
 
 <script>
-const LANG={en:'English',ru:'Русский',th:'ไทย',ar:'العربية',uk:'Українська',ka:'ქართული',hy:'Հայերեն',az:'Azərbaycan'};
+const LANG={en:'English',ru:'Russian',th:'ไทย',ar:'العربية',uk:'Ukrainian',ka:'ქართული',hy:'Հայերեն',az:'Azərbaycan'};
 let secrets={login:'',password:''}, rows=[], selected=new Set();
 const fallbackCountryOptions=document.getElementById('loc').innerHTML;
-const catalogWarning='Не удалось загрузить каталог стран и языков. Доступен прежний список; повторите сохранение ключей, чтобы загрузить каталог.';
+const catalogWarning='Could not load the country and language catalog. The fallback list is available; save your credentials again to retry.';
 let countryCatalog=null, catalogRequest=0;
 
 function qs(id){return document.getElementById(id)}
@@ -127,7 +127,7 @@ function sstatus(msg,type=''){qs('secretStatus').textContent=msg;qs('secretStatu
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function currentCtx(){return {location_code:Number(qs('loc').value)||null,language_code:qs('lang').value}}
 function currentKeywords(){return qs('keywords').value.split(/\n+/).map(x=>x.trim()).filter(Boolean)}
-function credsOk(){if(!secrets.login||!secrets.password){openSecrets();sstatus('Введите DataForSEO login и API password','err');return false}return true}
+function credsOk(){if(!secrets.login||!secrets.password){openSecrets();sstatus('Enter your DataForSEO login and API password','err');return false}return true}
 function syncLang(preferred=qs('lang').value){
   const locationCode=qs('loc').value,opt=qs('loc').selectedOptions[0];
   const languages=countryCatalog?.[locationCode]?.languages
@@ -175,18 +175,18 @@ async function loadCountryCatalog(){
 async function getVolume(){
   if(!credsOk())return;
   const keywords=currentKeywords(),ctx=currentCtx();
-  if(!ctx.location_code)return status('Выберите страну','err');if(!keywords.length)return status('Введите seed-ключи','err');
-  status('Проверяю volume…');
-  try{const d=await callApi('/api/volume',{login:secrets.login,password:secrets.password,keywords,...ctx});rows=d.rows||[];selected=new Set();renderResults('Volume',d);status('Готово · cost $'+Number(d.cost||0).toFixed(4),'ok')}catch(e){status(e.message,'err')}
+  if(!ctx.location_code)return status('Select a country','err');if(!keywords.length)return status('Enter seed keywords','err');
+  status('Checking volume…');
+  try{const d=await callApi('/api/volume',{login:secrets.login,password:secrets.password,keywords,...ctx});rows=d.rows||[];selected=new Set();renderResults('Volume',d);status('Done · cost $'+Number(d.cost||0).toFixed(4),'ok')}catch(e){status(e.message,'err')}
 }
 
 async function discoverKeywords(){
   if(!credsOk())return;
   const keywords=currentKeywords(),ctx=currentCtx();
-  if(!ctx.location_code)return status('Выберите страну','err');if(!keywords.length)return status('Введите seed-ключи','err');
+  if(!ctx.location_code)return status('Select a country','err');if(!keywords.length)return status('Enter seed keywords','err');
   const sources=[...document.querySelectorAll('.src:checked')].map(x=>x.value);
-  if(!sources.length)return status('Выберите хотя бы один источник','err');
-  status('Собираю направления из '+sources.length+' источников…');
+  if(!sources.length)return status('Select at least one source','err');
+  status('Discovering keywords from '+sources.length+' sources…');
   try{
     const d=await callApi('/api/discover',{
       login:secrets.login,password:secrets.password,keywords,
@@ -197,9 +197,9 @@ async function discoverKeywords(){
 const breakdown=Object.entries(d.costs||{}).map(([k,v])=>k+' $'+Number(v).toFixed(4)).join(' · ');
     const errors=d.errors||[];
     const details=errors.slice(0,2).map(x=>String(x).slice(0,120)).join(' · ');
-    const warn=errors.length?' · предупреждения ('+errors.length+'): '+details+(errors.length>2?' …':''):'';
-    const costText=d.cost_complete===false?'учтённый cost $'+Number(d.cost||0).toFixed(4)+' (итог неизвестен)':'cost $'+Number(d.cost||0).toFixed(4);
-    status('Готово: '+rows.length+' уникальных из '+Number(d.raw_rows||rows.length)+' · '+costText+(breakdown?' · '+breakdown:'')+warn,errors.length?'warn':'ok')
+    const warn=errors.length?' · warnings ('+errors.length+'): '+details+(errors.length>2?' …':''):'';
+    const costText=d.cost_complete===false?'accounted cost $'+Number(d.cost||0).toFixed(4)+' (final cost unknown)':'cost $'+Number(d.cost||0).toFixed(4);
+    status('Done: '+rows.length+' unique out of '+Number(d.raw_rows||rows.length)+' · '+costText+(breakdown?' · '+breakdown:'')+warn,errors.length?'warn':'ok')
   }catch(e){status(e.message,'err')}
 }
 
@@ -215,7 +215,7 @@ function renderResults(title,d){
     '<td>'+esc((r.sources||[r.source]).filter(Boolean).join(', '))+'</td>'+
     '<td>'+esc((r.seeds||[r.seed]).filter(Boolean).join(' | '))+'</td>'+
     '<td>'+esc(r.kind||'query')+'</td>'+
-    '<td class="vol">'+Number(r.volume||0).toLocaleString('ru-RU')+'</td>'+
+    '<td class="vol">'+Number(r.volume||0).toLocaleString('en-US')+'</td>'+
     '<td>'+(r.score==null?esc(r.score_label||'—'):esc(r.score))+'</td>'+
   '</tr>').join('');
 }
@@ -235,16 +235,16 @@ function updateBasketCount(){qs('basketCount').textContent=basket().length}
 function openBasket(){renderBasket();qs('basket').classList.add('open');qs('backdrop').classList.add('open')}
 function closeBasket(){qs('basket').classList.remove('open');qs('backdrop').classList.remove('open')}
 function renderBasket(){
-  const arr=basket();qs('basketList').innerHTML=arr.length?arr.map((x,i)=>'<div class="basket-item"><input type="checkbox" '+(x.selected?'checked':'')+' onchange="basketSelect('+i+',this.checked)"><span>'+esc(x.keyword)+'</span><span class="vol">'+Number(x.volume||0).toLocaleString('ru-RU')+'</span><button class="btn danger" onclick="removeBasketIndex('+i+')">✕</button></div>').join(''):'<p class="tiny">Набор пуст.</p>';updateBasketCount()
+  const arr=basket();qs('basketList').innerHTML=arr.length?arr.map((x,i)=>'<div class="basket-item"><input type="checkbox" '+(x.selected?'checked':'')+' onchange="basketSelect('+i+',this.checked)"><span>'+esc(x.keyword)+'</span><span class="vol">'+Number(x.volume||0).toLocaleString('en-US')+'</span><button class="btn danger" onclick="removeBasketIndex('+i+')">✕</button></div>').join(''):'<p class="tiny">The basket is empty.</p>';updateBasketCount()
 }
 function basketSelect(i,on){const arr=basket();if(arr[i])arr[i].selected=on;saveBasket(arr)}
 function removeBasketIndex(i){const arr=basket();arr.splice(i,1);saveBasket(arr)}
 function removeSelectedBasket(){saveBasket(basket().filter(x=>!x.selected))}
-function clearBasket(){if(confirm('Очистить рабочий набор?'))saveBasket([])}
+function clearBasket(){if(confirm('Clear the working basket?'))saveBasket([])}
 function dedupeBasket(){mergeIntoBasket(basket())}
 function useSelectedAsSeeds(){
   const arr=basket(),picked=arr.filter(x=>x.selected),use=picked.length?picked:arr;if(!use.length)return;
-  qs('keywords').value=use.map(x=>x.keyword).join('\n');closeBasket();window.scrollTo({top:0,behavior:'smooth'});status('В seeds загружено: '+use.length,'ok')
+  qs('keywords').value=use.map(x=>x.keyword).join('\n');closeBasket();window.scrollTo({top:0,behavior:'smooth'});status('Seed keywords loaded: '+use.length,'ok')
 }
 
 function exportCurrent(){
@@ -263,8 +263,8 @@ function exportCurrent(){
 
 function openSecrets(){qs('secretModal').classList.add('open');qs('dfsLogin').value=secrets.login;qs('dfsPassword').value=secrets.password}
 function closeSecrets(){qs('secretModal').classList.remove('open')}
-function useForSession(){secrets={login:qs('dfsLogin').value.trim(),password:qs('dfsPassword').value};sessionStorage.setItem('dfs-session',JSON.stringify(secrets));sstatus('Сохранено только для этой вкладки','ok');setTimeout(closeSecrets,350);loadCountryCatalog()}
-function forgetSecrets(){secrets={login:'',password:''};sessionStorage.removeItem('dfs-session');qs('dfsLogin').value='';qs('dfsPassword').value='';catalogRequest++;restoreCountryFallback();sstatus('Ключи забыты','ok')}
+function useForSession(){secrets={login:qs('dfsLogin').value.trim(),password:qs('dfsPassword').value};sessionStorage.setItem('dfs-session',JSON.stringify(secrets));sstatus('Saved only for this tab','ok');setTimeout(closeSecrets,350);loadCountryCatalog()}
+function forgetSecrets(){secrets={login:'',password:''};sessionStorage.removeItem('dfs-session');qs('dfsLogin').value='';qs('dfsPassword').value='';catalogRequest++;restoreCountryFallback();sstatus('Credentials cleared','ok')}
 
 (function init(){try{const s=JSON.parse(sessionStorage.getItem('dfs-session')||'null');if(s)secrets=s}catch(_){}syncLang();updateBasketCount();if(!secrets.login||!secrets.password)openSecrets();else loadCountryCatalog();if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{})})();
 </script>
