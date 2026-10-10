@@ -2,7 +2,7 @@
 
 A small Flask app for exploring search demand. Enter seed keywords, choose a country and language, then compare related-search ideas from Google Ads, DataForSEO Labs, Google Autocomplete, Google Trends, and Google SERP.
 
-The interface is currently in Russian.
+The interface is in English.
 
 ## Features
 

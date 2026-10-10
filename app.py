@@ -42,24 +42,50 @@ def add_security_headers(response):
 
 @app.errorhandler(UnsupportedMediaType)
 def handle_unsupported_media_type(_):
-    return jsonify({"error": "Ожидается Content-Type application/json"}), 415
+    return jsonify({"error": "Expected Content-Type application/json"}), 415
 
 
 def clean_body():
     try:
         body = request.get_json()
     except BadRequest as exc:
-        raise ValueError("Некорректный JSON") from exc
+        raise ValueError("Invalid JSON") from exc
     if not isinstance(body, dict):
-        raise ValueError("Ожидается JSON-объект")
+        raise ValueError("Expected a JSON object")
     return body
+
+
+def clean_keywords(body, limit, limit_message, empty_message):
+    """COR-002: `keywords` must be array[string]; items are trimmed, empties dropped,
+    duplicates removed case-insensitively (first occurrence wins, order preserved)."""
+    raw = body.get("keywords", [])
+    if not isinstance(raw, list):
+        raise ValueError("The keywords field must be an array of strings")
+    keywords = []
+    seen = set()
+    for index, value in enumerate(raw):
+        if not isinstance(value, str):
+            raise ValueError(f"keywords[{index}] must be a string")
+        keyword = value.strip()
+        if not keyword:
+            continue
+        key = keyword.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        keywords.append(keyword)
+    if not keywords:
+        raise ValueError(empty_message)
+    if len(keywords) > limit:
+        raise ValueError(limit_message)
+    return keywords
 
 
 def dataforseo_credentials(body):
     login = str(body.get("login", "")).strip()
     password = str(body.get("password", "")).strip()
     if not login or not password:
-        raise ValueError("Введите DataForSEO login и API password")
+        raise ValueError("Enter your DataForSEO login and API password")
     return login, password
 
 
@@ -110,7 +136,7 @@ def validate_dataforseo_response(data):
                 not isinstance(extended, list)
                 or any(not isinstance(value, (str, dict)) for value in extended)
             ):
-                invalid("DataForSEO вернул некорректный extended_people_also_search")
+                invalid("DataForSEO returned invalid extended_people_also_search")
 
         for field in ("items", "options"):
             if field not in node or node[field] is None:
@@ -119,18 +145,18 @@ def validate_dataforseo_response(data):
             if not isinstance(children, list) or any(
                 not isinstance(child, dict) for child in children
             ):
-                invalid(f"DataForSEO вернул некорректный список {field}")
+                invalid(f"DataForSEO returned an invalid list for {field}")
             validate_serp_node(children, node_type)
 
     def validate_volume(record):
         volume = record.get("search_volume")
         if "search_volume" in record and not valid_volume(volume):
-            invalid("DataForSEO вернул некорректный search_volume")
+            invalid("DataForSEO returned invalid search_volume")
         keyword_info = record.get("keyword_info")
         if isinstance(keyword_info, dict):
             volume = keyword_info.get("search_volume")
             if "search_volume" in keyword_info and not valid_volume(volume):
-                invalid("DataForSEO вернул некорректный keyword_info.search_volume")
+                invalid("DataForSEO returned invalid keyword_info.search_volume")
         keyword_data = record.get("keyword_data")
         if isinstance(keyword_data, dict):
             nested_info = keyword_data.get("keyword_info")
@@ -138,61 +164,61 @@ def validate_dataforseo_response(data):
                 volume = nested_info.get("search_volume")
                 if "search_volume" in nested_info and not valid_volume(volume):
                     invalid(
-                        "DataForSEO вернул некорректный "
+                        "DataForSEO returned invalid "
                         "keyword_data.keyword_info.search_volume"
                     )
 
     if not isinstance(data, dict):
-        invalid("DataForSEO вернул JSON неожиданного формата")
+        invalid("DataForSEO returned an unexpected JSON structure")
     status_code = data.get("status_code")
     if not isinstance(status_code, int) or isinstance(status_code, bool):
-        invalid("DataForSEO вернул некорректный status_code")
+        invalid("DataForSEO returned invalid status_code")
     if not valid_cost(data.get("cost")):
-        invalid("DataForSEO вернул некорректный cost")
+        invalid("DataForSEO returned invalid cost")
 
     tasks = data.get("tasks")
     if not isinstance(tasks, list) or not tasks:
-        invalid("DataForSEO вернул ответ без массива tasks")
+        invalid("DataForSEO returned a response without a tasks array")
 
     for task in tasks:
         if not isinstance(task, dict):
-            invalid("DataForSEO вернул некорректную запись task")
+            invalid("DataForSEO returned an invalid record in task")
         task_status = task.get("status_code")
         if not isinstance(task_status, int) or isinstance(task_status, bool):
-            invalid("DataForSEO вернул некорректный status_code задачи")
+            invalid("DataForSEO returned invalid task status_code")
         if not valid_cost(task.get("cost")):
-            invalid("DataForSEO вернул некорректный cost задачи")
+            invalid("DataForSEO returned invalid task cost")
 
         result = task.get("result")
         if result is None:
             continue
         if not isinstance(result, list):
-            invalid("DataForSEO вернул некорректный массив result")
+            invalid("DataForSEO returned an invalid array for result")
 
         for result_item in result:
             if not isinstance(result_item, dict):
-                invalid("DataForSEO вернул некорректную запись result")
+                invalid("DataForSEO returned an invalid record in result")
             validate_volume(result_item)
             validate_serp_node(result_item)
             items = result_item.get("items")
             if items is None:
                 continue
             if not isinstance(items, list):
-                invalid("DataForSEO вернул некорректный массив items")
+                invalid("DataForSEO returned an invalid array for items")
             for item in items:
                 if not isinstance(item, dict):
-                    invalid("DataForSEO вернул некорректную запись items")
+                    invalid("DataForSEO returned an invalid record in items")
                 validate_volume(item)
                 for field in ("keyword_info", "keyword_data"):
                     value = item.get(field)
                     if value is not None and not isinstance(value, dict):
-                        invalid(f"DataForSEO вернул некорректное поле {field}")
+                        invalid(f"DataForSEO returned an invalid field: {field}")
                 keyword_data = item.get("keyword_data")
                 if keyword_data is not None:
                     nested_info = keyword_data.get("keyword_info")
                     if nested_info is not None and not isinstance(nested_info, dict):
                         invalid(
-                            "DataForSEO вернул некорректное поле "
+                            "DataForSEO returned an invalid field: "
                             "keyword_data.keyword_info"
                         )
                 if item.get("type") == "google_trends_queries_list":
@@ -200,14 +226,14 @@ def validate_dataforseo_response(data):
                     if trends_data is None:
                         trends_data = {}
                     elif not isinstance(trends_data, dict):
-                        invalid("DataForSEO вернул некорректное поле data")
+                        invalid("DataForSEO returned an invalid field: data")
                     for bucket in ("top", "rising"):
                         queries = trends_data.get(bucket)
                         if queries is not None and (
                             not isinstance(queries, list)
                             or any(not isinstance(query, dict) for query in queries)
                         ):
-                            invalid(f"DataForSEO вернул некорректный список {bucket}")
+                            invalid(f"DataForSEO returned an invalid list for {bucket}")
 
     return data
 
@@ -225,7 +251,7 @@ async def _dfs_post(endpoint, payload, login, password, timeout):
                 data = await response.json()
             except (aiohttp.ClientError, ValueError) as exc:
                 raise InvalidDataForSEOResponse(
-                    "DataForSEO вернул некорректный или пустой JSON"
+                    "DataForSEO returned invalid or empty JSON"
                 ) from exc
             return validate_dataforseo_response(data)
 
@@ -246,7 +272,7 @@ async def _dfs_get(endpoint, login, password, timeout):
                 data = await response.json()
             except (aiohttp.ClientError, ValueError) as exc:
                 raise InvalidDataForSEOResponse(
-                    "DataForSEO вернул некорректный или пустой JSON"
+                    "DataForSEO returned invalid or empty JSON"
                 ) from exc
             return validate_dataforseo_response(data)
 
@@ -273,25 +299,25 @@ def normalize_country_catalog(data):
                     or not location_name.strip()
                     or not isinstance(country_iso_code, str)
                     or not country_iso_code.strip()):
-                raise InvalidDataForSEOResponse("Некорректная страна в каталоге")
+                raise InvalidDataForSEOResponse("Invalid country in the catalog")
 
             raw_languages = location.get("available_languages")
             if not isinstance(raw_languages, list):
-                raise InvalidDataForSEOResponse("Некорректный список языков страны")
+                raise InvalidDataForSEOResponse("Invalid country language list")
             languages = {}
             for language in raw_languages:
                 if not isinstance(language, dict):
-                    raise InvalidDataForSEOResponse("Некорректный язык в каталоге")
+                    raise InvalidDataForSEOResponse("Invalid language in the catalog")
                 sources = language.get("available_sources")
                 if not isinstance(sources, list):
-                    raise InvalidDataForSEOResponse("Некорректные источники языка")
+                    raise InvalidDataForSEOResponse("Invalid language sources")
                 if "google" not in sources:
                     continue
                 code = language.get("language_code")
                 name = language.get("language_name")
                 if (not isinstance(code, str) or not code.strip()
                         or not isinstance(name, str) or not name.strip()):
-                    raise InvalidDataForSEOResponse("Некорректные данные языка")
+                    raise InvalidDataForSEOResponse("Invalid language data")
                 code = code.strip()
                 languages[code] = {
                     "language_code": code,
@@ -308,7 +334,7 @@ def normalize_country_catalog(data):
                     ),
                 }
     if not countries:
-        raise InvalidDataForSEOResponse("В каталоге нет поддерживаемых стран Google")
+        raise InvalidDataForSEOResponse("The catalog contains no supported Google countries")
     return sorted(countries.values(), key=lambda row: row["location_name"].casefold())
 
 
@@ -511,11 +537,11 @@ def catalog():
                 return jsonify({"error": error}), 502
         return jsonify({"locations": normalize_country_catalog(data)})
     except InvalidDataForSEOResponse:
-        return jsonify({"error": "Каталог DataForSEO пустой или некорректный"}), 502
+        return jsonify({"error": "The DataForSEO catalog is empty or invalid"}), 502
     except aiohttp.ClientResponseError as exc:
         return jsonify({"error": "DataForSEO HTTP error: " + str(exc.status)}), 502
     except (aiohttp.ClientError, asyncio.TimeoutError):
-        return jsonify({"error": "Не удалось получить каталог DataForSEO"}), 502
+        return jsonify({"error": "Could not load the DataForSEO catalog"}), 502
 
 
 @app.route("/api/volume", methods=["POST"])
@@ -523,19 +549,20 @@ def volume():
     try:
         body = clean_body()
         login, password = dataforseo_credentials(body)
+        keywords = clean_keywords(
+            body,
+            limit=1000,
+            limit_message="A volume request supports at most 1000 keywords",
+            empty_message="Enter at least one keyword",
+        )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
-    keywords = [str(k).strip() for k in body.get("keywords", []) if str(k).strip()]
     location_code = body.get("location_code")
     language_code = str(body.get("language_code", "")).strip()
 
-    if not keywords:
-        return jsonify({"error": "Введите хотя бы один ключ"}), 400
-    if len(keywords) > 1000:
-        return jsonify({"error": "За один volume-запрос можно отправить не больше 1000 ключей"}), 400
     if not location_code:
-        return jsonify({"error": "Выберите регион"}), 400
+        return jsonify({"error": "Select a location"}), 400
 
     task = {"keywords": keywords, "location_code": int(location_code), "sort_by": "search_volume"}
     if language_code:
@@ -551,13 +578,13 @@ def volume():
         return jsonify({"rows": rows, "cost": task_cost(data), "tasks": 1})
     except InvalidDataForSEOResponse:
         return jsonify({
-            "error": "Ответ DataForSEO пустой или некорректный; запрос мог быть обработан и тарифицироваться."
+            "error": "The DataForSEO response is empty or invalid; the request may have been processed and charged."
         }), 502
     except aiohttp.ClientResponseError as exc:
         return jsonify({"error": "DataForSEO HTTP error: " + str(exc.status)}), 502
     except (aiohttp.ClientError, asyncio.TimeoutError):
         return jsonify({
-            "error": "Ответ DataForSEO не получен; запрос мог быть обработан и тарифицироваться."
+            "error": "No DataForSEO response was received; the request may have been processed and charged."
         }), 502
 
 
@@ -566,25 +593,21 @@ def discover():
     try:
         body = clean_body()
         login, password = dataforseo_credentials(body)
+        seeds = clean_keywords(
+            body,
+            limit=200,
+            limit_message="A discovery run supports at most 200 seed keywords",
+            empty_message="Enter at least one seed keyword",
+        )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-
-    seeds = []
-    seen = set()
-    for value in body.get("keywords", []):
-        seed = str(value).strip()
-        if seed and seed.casefold() not in seen:
-            seen.add(seed.casefold())
-            seeds.append(seed)
 
     location_code = body.get("location_code")
     language_code = str(body.get("language_code", "")).strip()
     sources = body.get("sources") or ["google_ads"]
     sources = [str(x) for x in sources]
-    if not seeds:
-        return jsonify({"error": "Введите хотя бы один seed-ключ"}), 400
     if not location_code:
-        return jsonify({"error": "Выберите регион"}), 400
+        return jsonify({"error": "Select a location"}), 400
 
     try:
         limit = max(10, min(5000, int(body.get("limit", 200))))
@@ -596,11 +619,10 @@ def discover():
         related_depth = 1
 
     # Per-user-action caps prevent an accidental expensive fan-out from mobile UI.
-    if len(seeds) > 200:
-        return jsonify({"error": "За один discovery-запуск максимум 200 seed-ключей"}), 400
+    # The 200-seed cap is enforced in clean_keywords().
     expensive_per_seed = {"autocomplete", "labs_suggestions", "labs_related", "trends", "serp"}
     if len(seeds) > 50 and any(s in expensive_per_seed for s in sources):
-        return jsonify({"error": "Для Autocomplete/Labs/Trends/SERP максимум 50 seed-ключей за запуск"}), 400
+        return jsonify({"error": "Autocomplete/Labs/Trends/SERP support at most 50 seed keywords per run"}), 400
 
     per_seed_sources = ("labs_suggestions", "labs_related", "autocomplete", "trends", "serp")
     expected_calls = math.ceil(len(seeds) / 20) if "google_ads" in sources else 0
@@ -609,9 +631,9 @@ def discover():
     if expected_calls > DISCOVERY_MAX_CALLS:
         return jsonify({
             "error": (
-                f"Этот запуск потребует {expected_calls} запросов DataForSEO; "
-                f"максимум за один запуск — {DISCOVERY_MAX_CALLS}. "
-                "Уменьшите число seed-ключей или выберите меньше источников."
+                f"This run requires {expected_calls} DataForSEO requests; "
+                f"maximum per run: {DISCOVERY_MAX_CALLS}. "
+                "Reduce the seed keywords or select fewer sources."
             )
         }), 400
 
@@ -627,10 +649,10 @@ def discover():
     def discover_post(endpoint, payload):
         nonlocal request_count, cost_complete
         if request_count >= DISCOVERY_MAX_CALLS:
-            raise DiscoveryBudgetReached("Достигнут лимит запросов DataForSEO; показаны частичные результаты.")
+            raise DiscoveryBudgetReached("The DataForSEO request limit was reached; partial results are shown.")
         remaining = deadline - time.monotonic()
         if remaining <= 5:
-            raise DiscoveryBudgetReached("Лимит времени discovery достигнут; показаны частичные результаты.")
+            raise DiscoveryBudgetReached("The discovery time limit was reached; partial results are shown.")
         timeout = min(DFS_TIMEOUT_SECONDS, max(1, remaining - 5))
         request_count += 1
         try:
@@ -638,24 +660,24 @@ def discover():
         except InvalidDataForSEOResponse as exc:
             cost_complete = False
             raise DiscoveryBudgetReached(
-                "DataForSEO вернул пустой или некорректный ответ; результаты частичные, итоговая стоимость неизвестна."
+                "DataForSEO returned an empty or invalid response; results are partial and the final cost is unknown."
             ) from exc
         except aiohttp.ClientResponseError:
             raise
         except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
             cost_complete = False
             raise DiscoveryBudgetReached(
-                "DataForSEO не ответил вовремя; результаты частичные, итоговая стоимость неизвестна."
+                "DataForSEO timed out; results are partial and the final cost is unknown."
             ) from exc
-        if time.monotonic() >= deadline and not any("Лимит времени discovery достигнут" in error for error in errors):
-            errors.append("Лимит времени discovery достигнут; показаны полученные результаты.")
+        if time.monotonic() >= deadline and not any("The discovery time limit was reached" in error for error in errors):
+            errors.append("The discovery time limit was reached; available results are shown.")
         return data
 
     def discovery_payload():
         clean = dedupe_rows(rows, deadline=processing_deadline)
         clean.sort(key=lambda r: (r.get("volume") or 0, r.get("score") or 0), reverse=True)
-        if time.monotonic() >= processing_deadline and not any("Обработка результатов прервана" in error for error in errors):
-            errors.append("Обработка результатов прервана по лимиту времени; показан собранный фрагмент.")
+        if time.monotonic() >= processing_deadline and not any("Result processing reached the time limit" in error for error in errors):
+            errors.append("Result processing reached the time limit; collected results are shown.")
         return {
             "rows": clean[:limit],
             "raw_rows": len(rows),
@@ -855,13 +877,13 @@ def discover():
     except InvalidDataForSEOResponse:
         cost_complete = False
         errors.append(
-            "DataForSEO вернул пустой или некорректный ответ; показаны частичные результаты, итоговая стоимость неизвестна."
+            "DataForSEO returned an empty or invalid response; partial results are shown and the final cost is unknown."
         )
         return jsonify(discovery_payload())
     except aiohttp.ClientResponseError as exc:
         return jsonify({"error": "DataForSEO HTTP error: " + str(exc.status)}), 502
     except (aiohttp.ClientError, asyncio.TimeoutError):
-        return jsonify({"error": "Не удалось связаться с DataForSEO"}), 502
+        return jsonify({"error": "Could not connect to DataForSEO"}), 502
 
 
 if __name__ == "__main__":
